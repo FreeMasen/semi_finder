@@ -1,5 +1,6 @@
 extern crate ress;
 extern crate walkdir;
+extern crate pretty_env_logger;
 
 use ress::{Scanner, Punct};
 use walkdir::{WalkDir};
@@ -12,34 +13,49 @@ use std::{
 };
 
 fn main() {
+    ::std::env::set_var("RUST_LOG", "debug");
+    pretty_env_logger::init();
     let mut args = args();
     let _ = args.next();
     let start = args.collect::<Vec<String>>().join(" ");
-    println!("{}", start);
-    let res = check_js("var i = 0;").unwrap();
+    // println!("{}", start);
+    if let Err(issues) = check_files(start) {
+        for (path, indexes) in issues {
+            println!("Issues found in {:?} at indexes:", path);
+            println!("\t{:?}\n", indexes)
+        }
+    } else {
+        println!("Good to go, no semicolons found");
+    }
 }
 
 fn check_files(start: String) -> Result<(), HashMap<PathBuf, Vec<usize>>> {
+    // We are going to store the location of any semi-colons we have found
     let mut ret: HashMap<PathBuf, Vec<usize>> = HashMap::new();
     // loop over the directories in our path
     // set the min_depth to 1, so we will skip the
-    // path passed in as `start` and filter any
-    // invalid entries or entries that don't end with .js
-    // loop over each of the js files
-    // and try to read them to a string
+    // path passed in as `start`
     for entry in WalkDir::new(start).min_depth(1) {
+        // If the entry doesn't error
         if let Ok(entry) = entry {
+            // capture the path of this entry
             let path = entry.path();
-            if path.ends_with(".js") {
+            //if the path ends with js, we want to check for semicolons
+            println!("checking: {:?}", path);
+            if path.extension() == Some(::std::ffi::OsStr::new("js")) {
+                // if we can read the file to a string
                 if let Ok(js) = read_to_string(path) {
+                    // pas the text off to our check_js fn
                     if let Err(indexes) = check_js(&js) {
+                        // if we found any semicolons, add them to our hashmap
+                        // println!("found {} semicolons", indexes.len());
                         ret.insert(path.to_path_buf(), indexes);
                     }
                 }
             }
-
         }
     }
+    // if we found any semi-colons, send them up to the caller
     if ret.len() > 0 {
         Err(ret)
     } else {

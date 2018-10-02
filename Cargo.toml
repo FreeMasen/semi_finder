@@ -6,3 +6,4 @@ authors = ["Robert Masen <r@robertmasen.pizza>"]
 [dependencies]
 ress = "0.4"
 walkdir = "2.2"
+pretty_env_logger = "0.2.4"
